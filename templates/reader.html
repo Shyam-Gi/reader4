@@ -5,36 +5,72 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ book.metadata.title }}</title>
     <style>
+        :root {
+            color-scheme: light dark;
+            --body-bg: #ffffff;
+            --body-text: #212529;
+            --sidebar-bg: #f8f9fa;
+            --sidebar-border: #e9ecef;
+            --header-text: #495057;
+            --header-border: #dee2e6;
+            --link: #3498db;
+            --link-hover: #000000;
+            --active-link: #d63384;
+            --heading: #333333;
+            --nav-border: #eeeeee;
+            --muted: #999999;
+            --disabled: #cccccc;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --body-bg: #171c22;
+                --body-text: #e5ebf2;
+                --sidebar-bg: #212832;
+                --sidebar-border: #323c49;
+                --header-text: #d8e0ea;
+                --header-border: #3a4554;
+                --link: #61aee6;
+                --link-hover: #eaf2ff;
+                --active-link: #ff8ab8;
+                --heading: #ecf1f8;
+                --nav-border: #3a4554;
+                --muted: #9ca9bb;
+                --disabled: #6e7b8d;
+            }
+        }
+
         /* Layout */
-        body { margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-family: "Georgia", serif; background: #fff; }
+        body { margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; font-family: "Georgia", serif; background: var(--body-bg); color: var(--body-text); }
 
         /* Sidebar */
-        #sidebar { width: 300px; background: #f8f9fa; border-right: 1px solid #e9ecef; overflow-y: auto; padding: 20px; flex-shrink: 0; }
-        .nav-header { font-family: -apple-system, sans-serif; font-weight: bold; color: #495057; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #dee2e6; }
-        .nav-home { display: block; margin-bottom: 20px; color: #3498db; text-decoration: none; font-family: -apple-system, sans-serif; font-size: 0.9em; }
+        #sidebar { width: 300px; background: var(--sidebar-bg); border-right: 1px solid var(--sidebar-border); overflow-y: auto; padding: 20px; flex-shrink: 0; }
+        .nav-header { font-family: -apple-system, sans-serif; font-weight: bold; color: var(--header-text); margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid var(--header-border); }
+        .nav-home { display: block; margin-bottom: 20px; color: var(--link); text-decoration: none; font-family: -apple-system, sans-serif; font-size: 0.9em; }
 
         /* TOC Tree */
         ul.toc-list { list-style: none; padding-left: 0; margin: 0; }
         ul.toc-list ul { padding-left: 20px; } /* Indent children */
         li.toc-item { margin-bottom: 8px; }
-        a.toc-link { text-decoration: none; color: #495057; font-size: 0.95em; display: block; padding: 4px 0; line-height: 1.4; }
-        a.toc-link:hover { color: #000; text-decoration: underline; }
-        a.toc-link.active { color: #d63384; font-weight: bold; }
+        a.toc-link { text-decoration: none; color: var(--header-text); font-size: 0.95em; display: block; padding: 4px 0; line-height: 1.4; }
+        a.toc-link:hover { color: var(--link-hover); text-decoration: underline; }
+        a.toc-link.active { color: var(--active-link); font-weight: bold; }
 
         /* Main Content */
         #main { flex-grow: 1; overflow-y: auto; position: relative; scroll-behavior: smooth; }
-        .content-container { max-width: 700px; margin: 0 auto; padding: 60px 40px; line-height: 1.8; font-size: 1.15em; color: #212529; }
+        .content-container { max-width: 700px; margin: 0 auto; padding: 60px 40px; line-height: 1.8; font-size: 1.15em; color: var(--body-text); }
 
         /* Content Styling (Basic normalization for the book HTML) */
         .book-content img { max-width: 100%; height: auto; display: block; margin: 20px auto; }
-        .book-content h1, .book-content h2, .book-content h3 { font-family: -apple-system, sans-serif; margin-top: 1.5em; color: #333; }
+        .book-content h1, .book-content h2, .book-content h3 { font-family: -apple-system, sans-serif; margin-top: 1.5em; color: var(--heading); }
         .book-content p { margin-bottom: 1.5em; text-align: justify; }
 
         /* Navigation Footer */
-        .chapter-nav { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-family: -apple-system, sans-serif; }
-        .nav-btn { text-decoration: none; color: #3498db; font-weight: bold; padding: 10px 20px; border: 1px solid #3498db; border-radius: 4px; transition: all 0.2s; }
-        .nav-btn:hover { background: #3498db; color: white; }
-        .nav-btn.disabled { opacity: 0.5; pointer-events: none; border-color: #ccc; color: #ccc; }
+        .chapter-nav { display: flex; justify-content: space-between; margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--nav-border); font-family: -apple-system, sans-serif; }
+        .nav-btn { text-decoration: none; color: var(--link); font-weight: bold; padding: 10px 20px; border: 1px solid var(--link); border-radius: 4px; transition: all 0.2s; }
+        .nav-btn:hover { background: var(--link); color: #ffffff; }
+        .nav-btn.disabled { opacity: 0.5; pointer-events: none; border-color: var(--disabled); color: var(--disabled); }
+        .section-count { color: var(--muted); padding: 10px; }
 
     </style>
 </head>
@@ -108,7 +144,7 @@
                     <span class="nav-btn disabled">← Previous</span>
                 {% endif %}
 
-                <span style="color: #999; padding: 10px;">
+                <span class="section-count">
                     Section {{ chapter_index + 1 }} of {{ book.spine|length }}
                 </span>
 

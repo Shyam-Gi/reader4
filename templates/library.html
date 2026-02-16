@@ -5,15 +5,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Library</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f4f9; margin: 0; padding: 40px; }
+        :root {
+            color-scheme: light dark;
+            --bg: #f4f4f9;
+            --text: #333333;
+            --border: #dddddd;
+            --card-bg: #ffffff;
+            --card-title: #2c3e50;
+            --muted: #666666;
+            --btn-bg: #3498db;
+            --btn-bg-hover: #2980b9;
+            --btn-text: #ffffff;
+            --shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1b1f25;
+                --text: #e7ebf0;
+                --border: #343c48;
+                --card-bg: #242b35;
+                --card-title: #ecf2fa;
+                --muted: #b3becd;
+                --btn-bg: #4c9edb;
+                --btn-bg-hover: #3e89c0;
+                --btn-text: #f5f9ff;
+                --shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+            }
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px; }
         .container { max-width: 800px; margin: 0 auto; }
-        h1 { color: #333; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        h1 { color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 10px; }
         .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
-        .book-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.2s; }
-        .book-title { font-size: 1.2em; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }
-        .book-meta { color: #666; font-size: 0.9em; margin-bottom: 15px; }
-        .btn { display: inline-block; background: #3498db; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em; }
-        .btn:hover { background: #2980b9; }
+        .book-card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: var(--shadow); transition: transform 0.2s; }
+        .book-title { font-size: 1.2em; font-weight: bold; color: var(--card-title); margin-bottom: 10px; }
+        .book-meta { color: var(--muted); font-size: 0.9em; margin-bottom: 15px; }
+        .btn { display: inline-block; background: var(--btn-bg); color: var(--btn-text); text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em; }
+        .btn:hover { background: var(--btn-bg-hover); }
     </style>
 </head>
 <body>
