@@ -12,3 +12,8 @@ wheels/
 # Custom
 *_data/
 *.epub
+*.pdf
+
+# OS files
+desktop.ini
+.DS_Store

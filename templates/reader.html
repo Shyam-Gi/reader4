@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ book.metadata.title }}</title>
+    <link rel="icon" type="image/png" href="/favicon.ico?v=3">
+    <link rel="shortcut icon" href="/favicon.ico?v=3">
     <style>
         :root {
             color-scheme: light dark;
@@ -89,7 +91,7 @@
                     <!--
                         Matching Logic:
                         If the TOC item filename matches the current chapter filename, mark active.
-                        Ideally we match spine indices, but Reader 3 TOC maps to filenames.
+                        Ideally we match spine indices, but Reader 4 TOC maps to filenames.
                         We use a simple hash matching logic here.
                     -->
                     {% set is_active = current_chapter.href == item.file_href %}
@@ -188,3 +190,5 @@
     </script>
 </body>
 </html>
+
+

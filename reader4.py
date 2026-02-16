@@ -579,7 +579,7 @@ if __name__ == "__main__":
 
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python reader3.py <file.epub|file.pdf>")
+        print("Usage: python reader4.py <file.epub|file.pdf>")
         sys.exit(1)
 
     input_file = sys.argv[1]

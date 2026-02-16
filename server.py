@@ -8,13 +8,28 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from reader3 import Book, BookMetadata, ChapterContent, TOCEntry
+from reader4 import Book, BookMetadata, ChapterContent, TOCEntry
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 # Where are the book folders located?
 BOOKS_DIR = "."
+FAVICON_CANDIDATES = [
+    os.path.join("assets", "icons", "favicon.png"),
+    os.path.join("assets", "icons", "reader4.jpg"),
+]
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """Serve a site icon for browser tabs."""
+    for icon_name in FAVICON_CANDIDATES:
+        icon_path = os.path.join(BOOKS_DIR, icon_name)
+        if os.path.exists(icon_path):
+            return FileResponse(icon_path)
+    raise HTTPException(status_code=404, detail="Favicon not found")
 
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:

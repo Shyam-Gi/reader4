@@ -1,6 +1,9 @@
-# reader 3
+# reader 4
 
-![reader3](reader3.png)
+## Screenshots
+
+![Library](assets/screenshots/library.png)
+![Reader](assets/screenshots/reader.png)
 
 A lightweight, self-hosted EPUB/PDF reader that lets you read through books one section at a time. This makes it very easy to copy paste the contents of a section to an LLM, to read along. Basically - get EPUB books (e.g. [Project Gutenberg](https://www.gutenberg.org/) has many) or PDFs, open them up in this reader, copy paste text around to your favorite LLM, and read together and along.
 
@@ -8,19 +11,19 @@ This project was 90% vibe coded just to illustrate how one can very easily [read
 
 ## Usage
 
-The project uses [uv](https://docs.astral.sh/uv/). So for example, download [Dracula EPUB3](https://www.gutenberg.org/ebooks/345) to this directory as `dracula.epub`, then:
+The project uses [uv](https://docs.astral.sh/uv/). Process an EPUB:
 
 ```bash
-uv run reader3.py dracula.epub
+uv run reader4.py "your-book.epub"
 ```
 
 Or process a PDF:
 
 ```bash
-uv run reader3.py "Designing Data Intensive Applications - Martin Kleppmann.pdf"
+uv run reader4.py "your-book.pdf"
 ```
 
-This creates the directory `dracula_data`, which registers the book to your local library. We can then run the server:
+This creates the directory `<book_name>_data`, which registers the book to your local library. We can then run the server:
 
 ```bash
 uv run server.py
@@ -30,7 +33,7 @@ And visit [localhost:8123](http://localhost:8123/) to see your current Library. 
 
 ### PDF segmentation notes
 
-- If the PDF has bookmarks/outlines, `reader3.py` segments by those.
+- If the PDF has bookmarks/outlines, `reader4.py` segments by those.
 - It prefers chapter-like outline entries (instead of only high-level parts).
 - If no useful outline exists, it falls back to page-by-page segmentation.
 
