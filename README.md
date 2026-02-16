@@ -5,6 +5,7 @@
 ![Library](assets/screenshots/library.png)
 ![Reader](assets/screenshots/reader.png)
 
+Inspired from @karpathy's Reader 3
 A lightweight, self-hosted EPUB/PDF reader that lets you read through books one section at a time. This makes it very easy to copy paste the contents of a section to an LLM, to read along. Basically - get EPUB books (e.g. [Project Gutenberg](https://www.gutenberg.org/) has many) or PDFs, open them up in this reader, copy paste text around to your favorite LLM, and read together and along.
 
 This project was 90% vibe coded just to illustrate how one can very easily [read books together with LLMs](https://x.com/karpathy/status/1990577951671509438). I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
