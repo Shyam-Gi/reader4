@@ -1,10 +1,12 @@
 import os
 import pickle
+import re
+import shutil
 from functools import lru_cache
 from typing import Optional
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -20,6 +22,7 @@ FAVICON_CANDIDATES = [
     os.path.join("assets", "icons", "favicon.png"),
     os.path.join("assets", "icons", "reader4.jpg"),
 ]
+IGNORED_SCAN_DIRS = {".git", ".venv", "__pycache__", "assets", "templates"}
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -31,13 +34,40 @@ async def favicon():
             return FileResponse(icon_path)
     raise HTTPException(status_code=404, detail="Favicon not found")
 
+
+def decode_book_id(book_id: str) -> str:
+    # Route-safe encoding: nested path separators are represented as "__"
+    return book_id.replace("__", os.sep)
+
+
+def encode_book_id(rel_path: str) -> str:
+    return rel_path.replace(os.sep, "__")
+
+
+def safe_book_dir(book_id: str) -> Optional[str]:
+    rel = os.path.normpath(decode_book_id(book_id)).strip()
+    if not rel or rel == ".":
+        return None
+    if os.path.isabs(rel) or rel.startswith("..") or f"{os.sep}..{os.sep}" in rel:
+        return None
+
+    root_abs = os.path.abspath(BOOKS_DIR)
+    full_path = os.path.abspath(os.path.join(root_abs, rel))
+    if os.path.commonpath([root_abs, full_path]) != root_abs:
+        return None
+    return full_path
+
+
 @lru_cache(maxsize=10)
 def load_book_cached(folder_name: str) -> Optional[Book]:
     """
     Loads the book from the pickle file.
     Cached so we don't re-read the disk on every click.
     """
-    file_path = os.path.join(BOOKS_DIR, folder_name, "book.pkl")
+    book_dir = safe_book_dir(folder_name)
+    if not book_dir:
+        return None
+    file_path = os.path.join(book_dir, "book.pkl")
     if not os.path.exists(file_path):
         return None
 
@@ -49,26 +79,109 @@ def load_book_cached(folder_name: str) -> Optional[Book]:
         print(f"Error loading book {folder_name}: {e}")
         return None
 
+
+def category_from_rel_path(rel_path: str) -> str:
+    parts = rel_path.split(os.sep)
+    if len(parts) <= 1:
+        return "", "Uncategorized"
+    key = parts[0].strip()
+    label = key.replace("_", " ").replace("-", " ").strip()
+    return key, (label.title() if label else "Uncategorized")
+
+
+def normalize_category_key(category: str) -> str:
+    raw = (category or "").strip()
+    if not raw:
+        return ""
+    normalized = raw.lower().replace(" ", "-")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", normalized):
+        raise HTTPException(status_code=400, detail="Invalid category name")
+    return normalized
+
 @app.get("/", response_class=HTMLResponse)
 async def library_view(request: Request):
     """Lists all available processed books."""
     books = []
 
-    # Scan directory for folders ending in '_data' that have a book.pkl
+    # Scan directory tree for folders ending in '_data' that contain book.pkl
     if os.path.exists(BOOKS_DIR):
-        for item in os.listdir(BOOKS_DIR):
-            if item.endswith("_data") and os.path.isdir(item):
-                # Try to load it to get the title
-                book = load_book_cached(item)
-                if book:
-                    books.append({
-                        "id": item,
-                        "title": book.metadata.title,
-                        "author": ", ".join(book.metadata.authors),
-                        "chapters": len(book.spine)
-                    })
+        for root, dirs, files in os.walk(BOOKS_DIR, topdown=True):
+            dirs[:] = [d for d in dirs if d not in IGNORED_SCAN_DIRS and not d.startswith(".")]
 
-    return templates.TemplateResponse("library.html", {"request": request, "books": books})
+            if os.path.basename(root).endswith("_data") and "book.pkl" in files:
+                rel_folder = os.path.relpath(root, BOOKS_DIR)
+                book = load_book_cached(encode_book_id(rel_folder))
+                if book:
+                    author = ", ".join(book.metadata.authors)
+                    books.append(
+                        {
+                            "id": encode_book_id(rel_folder),
+                            "title": book.metadata.title,
+                            "author": author,
+                            "chapters": len(book.spine),
+                            "category_key": category_from_rel_path(rel_folder)[0],
+                            "category": category_from_rel_path(rel_folder)[1],
+                        }
+                    )
+                # No need to descend further inside a _data directory.
+                dirs[:] = []
+
+    books = sorted(books, key=lambda x: x["title"].lower())
+    grouped_books = {}
+    for book in books:
+        grouped_books.setdefault(book["category"], []).append(book)
+
+    category_options = [
+        {"key": "technical", "label": "Technical"},
+        {"key": "self-help", "label": "Self Help"},
+        {"key": "", "label": "Uncategorized"},
+    ]
+    known_keys = {opt["key"] for opt in category_options}
+    for book in books:
+        key = book["category_key"]
+        if key and key not in known_keys:
+            label = key.replace("_", " ").replace("-", " ").title()
+            category_options.append({"key": key, "label": label})
+            known_keys.add(key)
+
+    return templates.TemplateResponse(
+        "library.html",
+        {
+            "request": request,
+            "books": books,
+            "grouped_books": grouped_books,
+            "category_options": category_options,
+        },
+    )
+
+
+@app.get("/library/move")
+async def move_book_to_category(book_id: str, target: str):
+    src_dir = safe_book_dir(book_id)
+    if not src_dir or not os.path.isdir(src_dir):
+        raise HTTPException(status_code=404, detail="Book not found")
+    if not os.path.basename(src_dir).endswith("_data"):
+        raise HTTPException(status_code=400, detail="Invalid book folder")
+
+    category_key = normalize_category_key(target)
+    if category_key:
+        dest_root = os.path.join(BOOKS_DIR, category_key)
+        os.makedirs(dest_root, exist_ok=True)
+    else:
+        dest_root = BOOKS_DIR
+
+    base_name = os.path.basename(src_dir)
+    dest_dir = os.path.abspath(os.path.join(dest_root, base_name))
+    if os.path.abspath(src_dir) != dest_dir:
+        if os.path.exists(dest_dir):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Destination already has '{base_name}'",
+            )
+        shutil.move(src_dir, dest_dir)
+        load_book_cached.cache_clear()
+
+    return RedirectResponse(url="/", status_code=303)
 
 @app.get("/read/{book_id}", response_class=HTMLResponse)
 async def redirect_to_first_chapter(book_id: str):
@@ -108,11 +221,11 @@ async def serve_image(book_id: str, image_name: str):
     The HTML contains <img src="images/pic.jpg">.
     The browser resolves this to /read/{book_id}/images/pic.jpg.
     """
-    # Security check: ensure book_id is clean
-    safe_book_id = os.path.basename(book_id)
+    book_dir = safe_book_dir(book_id)
+    if not book_dir:
+        raise HTTPException(status_code=404, detail="Book not found")
     safe_image_name = os.path.basename(image_name)
-
-    img_path = os.path.join(BOOKS_DIR, safe_book_id, "images", safe_image_name)
+    img_path = os.path.join(book_dir, "images", safe_image_name)
 
     if not os.path.exists(img_path):
         raise HTTPException(status_code=404, detail="Image not found")

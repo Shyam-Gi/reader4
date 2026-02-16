@@ -32,6 +32,24 @@ uv run server.py
 
 And visit [localhost:8123](http://localhost:8123/) to see your current Library. You can easily add more books, or delete them from your library by deleting the folder. It's not supposed to be complicated or complex.
 
+### Organize by folders
+
+You can organize books by creating directories and moving each `*_data` folder into them.  
+The Library page will show one section per top-level folder.
+
+Example:
+
+```text
+technical/Designing Data-Intensive Applications_data
+self-help/Atomic Habits_data
+```
+
+## Theme
+
+- Reader 4 supports a soft dark mode (not pure black) for both Library and Reader pages.
+- Theme switches automatically based on your OS/browser `prefers-color-scheme` setting.
+- Favicon and screenshots are also aligned with the dark UI style.
+
 ### PDF segmentation notes
 
 - If the PDF has bookmarks/outlines, `reader4.py` segments by those.

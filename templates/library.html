@@ -39,12 +39,17 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px; }
         .container { max-width: 800px; margin: 0 auto; }
         h1 { color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 10px; }
-        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 30px; }
+        .section-title { margin-top: 28px; margin-bottom: 8px; font-size: 1.1em; color: var(--card-title); }
+        .book-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; margin-top: 10px; }
         .book-card { background: var(--card-bg); padding: 20px; border-radius: 8px; box-shadow: var(--shadow); transition: transform 0.2s; }
         .book-title { font-size: 1.2em; font-weight: bold; color: var(--card-title); margin-bottom: 10px; }
         .book-meta { color: var(--muted); font-size: 0.9em; margin-bottom: 15px; }
         .btn { display: inline-block; background: var(--btn-bg); color: var(--btn-text); text-decoration: none; padding: 8px 15px; border-radius: 4px; font-size: 0.9em; }
         .btn:hover { background: var(--btn-bg-hover); }
+        .card-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+        .cat-select { background: var(--card-bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 7px 9px; font-size: 0.9em; }
+        .move-btn { background: transparent; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 7px 10px; font-size: 0.85em; cursor: pointer; }
+        .move-btn:hover { color: var(--text); border-color: var(--muted); }
     </style>
 </head>
 <body>
@@ -55,18 +60,34 @@
             <p>No processed books found. Run <code>reader4.py</code> on an epub first.</p>
         {% endif %}
 
-        <div class="book-grid">
-            {% for book in books %}
-            <div class="book-card">
-                <div class="book-title">{{ book.title }}</div>
-                <div class="book-meta">
-                    {{ book.author }}<br>
-                    {{ book.chapters }} sections
+        {% for category, cat_books in grouped_books.items() %}
+            {% if cat_books %}
+                <h2 class="section-title">{{ category }}</h2>
+                <div class="book-grid">
+                    {% for book in cat_books %}
+                    <div class="book-card">
+                        <div class="book-title">{{ book.title }}</div>
+                        <div class="book-meta">
+                            {{ book.author }}<br>
+                            {{ book.chapters }} sections
+                        </div>
+                        <a href="/read/{{ book.id }}/0" class="btn">Read Book</a>
+                        <form action="/library/move" method="get" class="card-actions">
+                            <input type="hidden" name="book_id" value="{{ book.id }}">
+                            <select name="target" class="cat-select">
+                                {% for option in category_options %}
+                                    <option value="{{ option.key }}" {% if option.key == book.category_key %}selected{% endif %}>
+                                        {{ option.label }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="move-btn">Move</button>
+                        </form>
+                    </div>
+                    {% endfor %}
                 </div>
-                <a href="/read/{{ book.id }}/0" class="btn">Read Book</a>
-            </div>
-            {% endfor %}
-        </div>
+            {% endif %}
+        {% endfor %}
     </div>
 </body>
 </html>
