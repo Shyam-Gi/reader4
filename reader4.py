@@ -3,8 +3,10 @@ Parses EPUB/PDF files into a structured object for the local reader web interfac
 """
 
 import os
+import posixpath
 import pickle
 import shutil
+import time
 from dataclasses import dataclass, field
 from typing import List, Dict, Optional, Any
 from datetime import datetime
@@ -94,6 +96,48 @@ def extract_plain_text(soup: BeautifulSoup) -> str:
     text = soup.get_text(separator=' ')
     # Collapse whitespace
     return ' '.join(text.split())
+
+
+def normalize_epub_path(path: str) -> str:
+    """Normalize EPUB internal href/src paths for stable matching."""
+    if not path:
+        return ""
+    cleaned = unquote(path).split("#", 1)[0].split("?", 1)[0].strip()
+    cleaned = cleaned.replace("\\", "/")
+    if not cleaned:
+        return ""
+    normalized = posixpath.normpath(cleaned)
+    if normalized == ".":
+        return ""
+    return normalized.lstrip("/")
+
+
+def clear_directory_best_effort(path: str):
+    """Remove directory contents without failing on transient lock errors."""
+    if not os.path.isdir(path):
+        return
+
+    for name in os.listdir(path):
+        target = os.path.join(path, name)
+        try:
+            if os.path.isdir(target):
+                shutil.rmtree(target)
+            else:
+                os.remove(target)
+        except PermissionError:
+            print(f"Warning: could not remove locked path: {target}")
+
+
+def prepare_output_dir(output_dir: str) -> str:
+    """
+    Prepare output directory for reruns safely.
+    Avoid deleting the whole folder (can fail on Windows/OneDrive locks).
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    images_dir = os.path.join(output_dir, "images")
+    os.makedirs(images_dir, exist_ok=True)
+    clear_directory_best_effort(images_dir)
+    return images_dir
 
 
 def text_to_html(text: str) -> str:
@@ -242,21 +286,25 @@ def process_epub(epub_path: str, output_dir: str) -> Book:
     metadata = extract_metadata_robust(book)
 
     # 3. Prepare Output Directories
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
-    images_dir = os.path.join(output_dir, 'images')
-    os.makedirs(images_dir, exist_ok=True)
+    images_dir = prepare_output_dir(output_dir)
 
     # 4. Extract Images & Build Map
     print("Extracting images...")
     image_map = {} # Key: internal_path, Value: local_relative_path
 
+    image_types = {ebooklib.ITEM_IMAGE}
+    if hasattr(ebooklib, "ITEM_COVER"):
+        image_types.add(getattr(ebooklib, "ITEM_COVER"))
+
     for item in book.get_items():
-        if item.get_type() == ebooklib.ITEM_IMAGE:
+        if item.get_type() in image_types:
             # Normalize filename
-            original_fname = os.path.basename(item.get_name())
+            internal_name = normalize_epub_path(item.get_name())
+            original_fname = posixpath.basename(internal_name)
             # Sanitize filename for OS
             safe_fname = "".join([c for c in original_fname if c.isalpha() or c.isdigit() or c in '._-']).strip()
+            if not safe_fname:
+                safe_fname = "image.bin"
 
             # Save to disk
             local_path = os.path.join(images_dir, safe_fname)
@@ -267,6 +315,8 @@ def process_epub(epub_path: str, output_dir: str) -> Book:
             # to be robust against messy HTML src attributes
             rel_path = f"images/{safe_fname}"
             image_map[item.get_name()] = rel_path
+            image_map[internal_name] = rel_path
+            image_map[f"./{internal_name}"] = rel_path
             image_map[original_fname] = rel_path
 
     # 5. Process TOC
@@ -298,15 +348,25 @@ def process_epub(epub_path: str, output_dir: str) -> Book:
                 src = img.get('src', '')
                 if not src: continue
 
-                # Decode URL (part01/image%201.jpg -> part01/image 1.jpg)
-                src_decoded = unquote(src)
-                filename = os.path.basename(src_decoded)
+                src_norm = normalize_epub_path(src)
+                chapter_href = normalize_epub_path(item.get_name())
+                chapter_dir = posixpath.dirname(chapter_href)
 
-                # Try to find in map
-                if src_decoded in image_map:
-                    img['src'] = image_map[src_decoded]
-                elif filename in image_map:
-                    img['src'] = image_map[filename]
+                candidates = []
+                if src_norm:
+                    candidates.append(src_norm)
+                    if chapter_dir:
+                        resolved = normalize_epub_path(posixpath.join(chapter_dir, src_norm))
+                        if resolved:
+                            candidates.append(resolved)
+                    filename = posixpath.basename(src_norm)
+                    if filename:
+                        candidates.append(filename)
+
+                for candidate in candidates:
+                    if candidate in image_map:
+                        img['src'] = image_map[candidate]
+                        break
 
             # B. Clean HTML
             soup = clean_html_content(soup)
@@ -458,8 +518,6 @@ def process_pdf(pdf_path: str, output_dir: str) -> Book:
     print(f"Loading {pdf_path}...")
     reader = PdfReader(pdf_path)
 
-    if os.path.exists(output_dir):
-        shutil.rmtree(output_dir)
     os.makedirs(output_dir, exist_ok=True)
 
     doc_meta = reader.metadata or {}
@@ -568,8 +626,30 @@ def process_book(input_path: str, output_dir: str) -> Book:
 
 def save_to_pickle(book: Book, output_dir: str):
     p_path = os.path.join(output_dir, 'book.pkl')
-    with open(p_path, 'wb') as f:
+    os.makedirs(output_dir, exist_ok=True)
+
+    tmp_path = p_path + ".tmp"
+    with open(tmp_path, 'wb') as f:
         pickle.dump(book, f)
+
+    last_error: Optional[Exception] = None
+    for _ in range(5):
+        try:
+            os.replace(tmp_path, p_path)
+            last_error = None
+            break
+        except PermissionError as e:
+            last_error = e
+            time.sleep(0.25)
+
+    if last_error is not None:
+        with open(p_path, 'wb') as f:
+            pickle.dump(book, f)
+        if os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
     print(f"Saved structured data to {p_path}")
 
 
